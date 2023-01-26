@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"github.com/kataras/neffos"
 	"github.com/zeromicro/go-zero/core/logx"
+	"sync"
 )
 
 type Broadcaster struct {
 	connMap     map[string]*WSConn
 	keyConnsMap map[string]map[string]struct{}
 	connKeysMap map[string]map[string]struct{}
+	mapsLock    sync.RWMutex
 }
 
 func NewBroadcaster() *Broadcaster {
@@ -17,10 +19,13 @@ func NewBroadcaster() *Broadcaster {
 		connMap:     make(map[string]*WSConn),
 		keyConnsMap: make(map[string]map[string]struct{}),
 		connKeysMap: make(map[string]map[string]struct{}),
+		mapsLock:    sync.RWMutex{},
 	}
 }
 
 func (b *Broadcaster) Subscribe(conn *WSConn, key string) {
+	b.mapsLock.Lock()
+	defer b.mapsLock.Unlock()
 	connID := conn.ID
 	b.connMap[connID] = conn
 	keys, ok := b.connKeysMap[connID]
@@ -38,6 +43,8 @@ func (b *Broadcaster) Subscribe(conn *WSConn, key string) {
 }
 
 func (b *Broadcaster) Unsubscribe(conn *WSConn, key string) {
+	b.mapsLock.Lock()
+	defer b.mapsLock.Unlock()
 	connID := conn.ID
 	delete(b.connKeysMap[connID], key)
 	delete(b.keyConnsMap[key], connID)
@@ -47,6 +54,8 @@ func (b *Broadcaster) Unsubscribe(conn *WSConn, key string) {
 }
 
 func (b *Broadcaster) Disconnect(connID string) {
+	b.mapsLock.Lock()
+	defer b.mapsLock.Unlock()
 	delete(b.connMap, connID)
 	keys, ok := b.connKeysMap[connID]
 	if ok {
@@ -61,6 +70,8 @@ func (b *Broadcaster) Disconnect(connID string) {
 }
 
 func (b *Broadcaster) Broadcast(key string, event string, payload interface{}, excepts ...*neffos.NSConn) error {
+	b.mapsLock.RLock()
+	defer b.mapsLock.RUnlock()
 	connIDs, ok := b.keyConnsMap[key]
 	if !ok {
 		return nil
