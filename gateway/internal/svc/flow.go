@@ -1,9 +1,22 @@
-package service
+package svc
 
 import (
 	"gorm.io/gorm"
-	"powernotes-server/model"
+	"gorm.io/gorm/clause"
+	"powernotes-server/gateway/internal/model"
+	"powernotes-server/gateway/internal/websocket"
 )
+
+func SaveFlow(flow *model.Flow) (*model.Flow, error) {
+	result := model.DB.Clauses(clause.OnConflict{
+		UpdateAll: true,
+	}).Save(&flow)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	_ = websocket.ProjectBroadcaster.Broadcast(flow.ProjectName, "flow", &flow)
+	return flow, nil
+}
 
 func RemoveFlow(id int64) (*model.Flow, error) {
 	flow := model.Flow{}

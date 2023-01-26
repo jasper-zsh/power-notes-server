@@ -1,11 +1,12 @@
-package service
+package svc
 
 import (
 	"fmt"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"powernotes-server/handler"
-	"powernotes-server/model"
+	"powernotes-server/gateway/internal/model"
+	"powernotes-server/gateway/internal/types"
+	"powernotes-server/gateway/internal/websocket"
 )
 
 const (
@@ -49,7 +50,7 @@ func SaveFlowNoteRelation(rel *model.FlowNoteRelation) (*model.FlowNoteRelation,
 		return nil, err
 	}
 	for _, r := range notify {
-		handler.ProjectBroadcaster.Broadcast(flow.ProjectName, EventFlowNoteRelation, r)
+		_ = websocket.ProjectBroadcaster.Broadcast(flow.ProjectName, EventFlowNoteRelation, r)
 	}
 	return rel, nil
 }
@@ -64,21 +65,14 @@ func RemoveFlowNoteRelation(flowID int64, noteID int64) error {
 	if result.Error != nil {
 		return result.Error
 	}
-	handler.ProjectBroadcaster.Broadcast(flow.ProjectName, EventRemoveFlowNoteRelation, &model.FlowNoteRelation{
+	_ = websocket.ProjectBroadcaster.Broadcast(flow.ProjectName, EventRemoveFlowNoteRelation, &model.FlowNoteRelation{
 		FlowID: flowID,
 		NoteID: noteID,
 	})
 	return nil
 }
 
-type SwapFlowNote struct {
-	FlowID   int64 `json:"flow_id"`
-	NoteID   int64 `json:"note_id"`
-	Position int   `json:"position"`
-	Offset   int   `json:"offset"`
-}
-
-func SwapFlowNoteRelation(req *SwapFlowNote) error {
+func SwapFlowNoteRelation(req *types.SwapFlowNoteRequest) error {
 	err := model.DB.Transaction(func(tx *gorm.DB) error {
 		flow := model.Flow{}
 		result := tx.Where("id = ?", req.FlowID).First(&flow)
@@ -120,7 +114,7 @@ func SwapFlowNoteRelation(req *SwapFlowNote) error {
 				{FlowID: target.FlowID, NoteID: target.NoteID, Position: src.Position},
 			}
 			for _, rel := range notify {
-				handler.ProjectBroadcaster.Broadcast(flow.ProjectName, "flow_note_relation", rel)
+				_ = websocket.ProjectBroadcaster.Broadcast(flow.ProjectName, "flow_note_relation", rel)
 			}
 		}
 		return nil

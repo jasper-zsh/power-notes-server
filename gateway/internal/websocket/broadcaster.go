@@ -2,27 +2,26 @@ package websocket
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/kataras/neffos"
-	"github.com/sirupsen/logrus"
+	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type Broadcaster struct {
-	connMap     map[string]*neffos.NSConn
+	connMap     map[string]*WSConn
 	keyConnsMap map[string]map[string]struct{}
 	connKeysMap map[string]map[string]struct{}
 }
 
 func NewBroadcaster() *Broadcaster {
 	return &Broadcaster{
-		connMap:     make(map[string]*neffos.NSConn),
+		connMap:     make(map[string]*WSConn),
 		keyConnsMap: make(map[string]map[string]struct{}),
 		connKeysMap: make(map[string]map[string]struct{}),
 	}
 }
 
-func (b *Broadcaster) Subscribe(conn *neffos.NSConn, key string) {
-	connID := conn.String()
+func (b *Broadcaster) Subscribe(conn *WSConn, key string) {
+	connID := conn.ID
 	b.connMap[connID] = conn
 	keys, ok := b.connKeysMap[connID]
 	if !ok {
@@ -38,8 +37,8 @@ func (b *Broadcaster) Subscribe(conn *neffos.NSConn, key string) {
 	connIDs[connID] = struct{}{}
 }
 
-func (b *Broadcaster) Unsubscribe(conn *neffos.NSConn, key string) {
-	connID := conn.String()
+func (b *Broadcaster) Unsubscribe(conn *WSConn, key string) {
+	connID := conn.ID
 	delete(b.connKeysMap[connID], key)
 	delete(b.keyConnsMap[key], connID)
 	if len(b.keyConnsMap[key]) == 0 {
@@ -76,13 +75,13 @@ func (b *Broadcaster) Broadcast(key string, event string, payload interface{}, e
 		}
 		conn, ok := b.connMap[connID]
 		if !ok {
-			logrus.Warnf("Conn %s not found", connID)
+			logx.Infof("Conn %s not found", connID)
 			continue
 		}
 		if ok {
 			err := PushToClient(conn, event, payload)
 			if err != nil {
-				fmt.Printf("WARN: Failed to push to %s\n", connID)
+				logx.Infof("WARN: Failed to push to %s\n", connID)
 				continue
 			}
 		}
@@ -90,7 +89,7 @@ func (b *Broadcaster) Broadcast(key string, event string, payload interface{}, e
 	return nil
 }
 
-func PushToClient(conn *neffos.NSConn, event string, payload interface{}) error {
+func PushToClient(conn *WSConn, event string, payload interface{}) error {
 	raw := map[string]interface{}{
 		"event":   event,
 		"payload": payload,
@@ -99,10 +98,7 @@ func PushToClient(conn *neffos.NSConn, event string, payload interface{}) error 
 	if err != nil {
 		return err
 	}
-	err = conn.Conn.Socket().WriteText(b, 0)
-	if err != nil {
-		return err
-	}
-	logrus.Infof("Pushed to %s: %s", conn.String(), b)
+	conn.Write(b)
+	logx.Infof("Pushed to %s: %s", conn.ID, b)
 	return nil
 }

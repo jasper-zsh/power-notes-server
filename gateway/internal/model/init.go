@@ -4,7 +4,7 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"powernotes-server/config"
+	"powernotes-server/gateway/internal/config"
 )
 
 var DB *gorm.DB

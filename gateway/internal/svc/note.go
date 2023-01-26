@@ -1,9 +1,9 @@
-package service
+package svc
 
 import (
 	"gorm.io/gorm/clause"
-	"powernotes-server/handler"
-	"powernotes-server/model"
+	"powernotes-server/gateway/internal/model"
+	"powernotes-server/gateway/internal/websocket"
 )
 
 func SaveNote(note *model.Note) (*model.Note, error) {
@@ -14,7 +14,7 @@ func SaveNote(note *model.Note) (*model.Note, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	handler.ProjectBroadcaster.Broadcast(note.ProjectName, "note", &note)
+	_ = websocket.ProjectBroadcaster.Broadcast(note.ProjectName, "note", &note)
 	return note, nil
 }
 
@@ -37,9 +37,9 @@ func RemoveNote(id int64) (*model.Note, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	handler.ProjectBroadcaster.Broadcast(note.ProjectName, "remove_note", note)
+	_ = websocket.ProjectBroadcaster.Broadcast(note.ProjectName, "remove_note", note)
 	for _, rel := range rels {
-		handler.ProjectBroadcaster.Broadcast(note.ProjectName, EventRemoveFlowNoteRelation, rel)
+		_ = websocket.ProjectBroadcaster.Broadcast(note.ProjectName, EventRemoveFlowNoteRelation, rel)
 	}
 	return &note, nil
 }
