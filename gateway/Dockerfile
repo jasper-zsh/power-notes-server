@@ -26,4 +26,4 @@ WORKDIR /app
 COPY --from=builder /app/gateway /app/gateway
 COPY --from=builder /app/etc /app/etc
 
-CMD ["./gateway", "-f", "etc/gateway.yaml"]
+CMD ["./gateway", "-f", "etc/gateway-api.yaml"]

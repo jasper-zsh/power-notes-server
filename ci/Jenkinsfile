@@ -49,6 +49,7 @@ pipeline {
               container("kaniko") {
                 sh """
                 /kaniko/executor --cache=true \
+                  --cache-dir /cache \
                   --context `pwd` \
                   --dockerfile `pwd`/${dockerfile} \
                   --destination ${tag}
