@@ -35,7 +35,7 @@ func NewNoteFromModel(m *model.Note) *Note {
 func (api *Flow) ToModel() *model.Flow {
 	return &model.Flow{
 		ID:          api.ID,
-		ProjectName: api.Name,
+		ProjectName: api.ProjectName,
 		Name:        api.Name,
 		CreatedAt:   api.CreatedAt,
 		UpdatedAt:   api.UpdatedAt,
