@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"context"
 	"github.com/gorilla/websocket"
 	uuid "github.com/iris-contrib/go.uuid"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -52,6 +53,8 @@ func RegisterHandlers(server *rest.Server) {
 
 type WSConn struct {
 	ID           string
+	ctx          context.Context
+	cancel       context.CancelFunc
 	ticker       *time.Ticker
 	conn         *websocket.Conn
 	handler      WebsocketHandler
@@ -60,13 +63,15 @@ type WSConn struct {
 }
 
 func newWSConn(conn *websocket.Conn) *WSConn {
-	return &WSConn{
+	c := &WSConn{
 		ID:           genID(),
 		ticker:       time.NewTicker(pingPeriod),
 		conn:         conn,
 		writeChan:    make(chan []byte, 512),
 		onDisconnect: make([]OnDisconnectFunc, 0),
 	}
+	c.ctx, c.cancel = context.WithCancel(context.Background())
+	return c
 }
 
 func (c *WSConn) OnDisconnect(f OnDisconnectFunc) {
@@ -79,15 +84,19 @@ func (c *WSConn) Start() {
 }
 
 func (c *WSConn) Stop() {
+	c.cancel()
 	c.ticker.Stop()
 	for _, f := range c.onDisconnect {
 		f(c)
 	}
 	_ = c.conn.Close()
+	c.writeChan = nil
 }
 
 func (c *WSConn) Write(message []byte) {
-	c.writeChan <- message
+	if c.writeChan != nil {
+		c.writeChan <- message
+	}
 }
 
 func (c *WSConn) readPump() {
@@ -117,6 +126,8 @@ func (c *WSConn) writePump() {
 	}()
 	for {
 		select {
+		case <-c.ctx.Done():
+			return
 		case <-c.ticker.C:
 			_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
